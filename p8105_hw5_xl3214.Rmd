@@ -9,9 +9,11 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Question 1
+
 ## Introduction
 
-This analysis delves into the grim reality of unsolved homicides across various cities in the United States. Drawing inspiration from a [2018 Washington Post investigation](https://www.washingtonpost.com/graphics/2018/investigations/where-murders-go-unsolved/) which highlighted the concerning rates of murders going unsolved, particularly in certain urban areas, this report seeks to illuminate patterns in unsolved homicide cases. Utilizing a comprehensive dataset detailing homicides, this analysis not only identifies cities with high proportions of unsolved cases but also examines the demographic and geographical nuances underlying these statistics. The rationale behind this study stems from the urgent need to address and understand the factors contributing to the lack of resolution in these cases, as this has profound implications for justice and public safety.
+For this analysis segment, I delved into the grim reality of unsolved homicides across various cities in the United States. Drawing inspiration from a [2018 Washington Post investigation](https://www.washingtonpost.com/graphics/2018/investigations/where-murders-go-unsolved/) which highlighted the concerning rates of murders going unsolved, particularly in certain urban areas, this report seeks to illuminate patterns in unsolved homicide cases. Utilizing a comprehensive dataset detailing homicides, this analysis not only identifies cities with high proportions of unsolved cases but also examines the demographic and geographical nuances underlying these statistics. The rationale behind this study stems from the urgent need to address and understand the factors contributing to the lack of resolution in these cases, as this has profound implications for justice and public safety.
 
 ## Data Analysis
 
@@ -32,15 +34,15 @@ The raw data has `r ncol(homicide_raw)` columns and `r nrow(homicide_raw)` rows.
 ```{r}
 homicide <- homicide_raw |>
   janitor::clean_names() |>
-  mutate(city_state = paste(city, state, sep = ", ")) |>
-  mutate(victim_race = as.factor(victim_race)) |>
-  mutate(victim_sex = as.factor(victim_sex)) |>
-  mutate(victim_age = as.factor(victim_age)) |> 
-  mutate(disposition = as.factor(disposition))
+  mutate(city_state = paste(city, state, sep = ", "),
+         victim_race = as.factor(victim_race), 
+         victim_sex = as.factor(victim_sex), 
+         victim_age = as.factor(victim_age), 
+         disposition = as.factor(disposition))
 summary(homicide)
 ```
 
-```{r city_state and disposition, message=FALSE, warning=FALSE, fig.height=10, fig.width=8}
+```{r Q1-city_state and disposition, message=FALSE, warning=FALSE, fig.height=10, fig.width=8}
 homicide_sum <- homicide |> 
   group_by(city_state, disposition) |>
   summarise(total_homicides = n())
@@ -86,3 +88,67 @@ ggplot(homicide_summary_sorted, aes(x = reorder(city, estimate), y = estimate)) 
 The analysis revealed significant variations in the proportion of unsolved homicides across different cities. Notably, cities like Baltimore, Detroit, and Chicago emerged with a higher percentage of unsolved cases, aligning with national trends reported in major investigations. This pattern raises critical questions about law enforcement efficacy, resource allocation, and possible systemic issues within these urban centers.
 
 The data also brought to light the demographic aspects of the victims, showing disparities in the resolution of cases based on factors like race and age. Such disparities point towards potential underlying biases or systemic challenges in the criminal justice system that need addressing.
+
+# Question 2
+
+## Introduction
+
+In this analysis segment, I delve into a dataset drawn from a meticulously designed longitudinal study, which comprises both a control and an experimental arm. The dataset is publicly accessible and can be found [HERE](https://p8105.com/data/hw5_data.zip). Each participant's data is encapsulated in distinct files, labeled with their respective subject ID and designated study arm. I orchestrated these disparate data points into a coherent, tidied dataframe that captures the essence of each participant's journey through the study, tracking their individual observations over time. Furthermore, I have visualized the data through a spaghetti plot, which intricately maps out each participant's path across the study's timeline.
+
+## Data Analysis
+
+```{r Loading dataset, message = FALSE, warning=FALSE}
+library(tidyverse)
+
+# List file names
+file_names <- list.files(path = "data_files/question2", full.names = TRUE)
+
+# Extract arm and subject ID information
+file_info <- tibble(
+  file_path = file_names,
+  arm = if_else(str_detect(file_path, "con_"), "Control", "Experimental"),
+  subject_id = str_extract(basename(file_path), "exp_\\d+|con_\\d+")
+)
+
+# Initialize an empty list to store dataframes
+data_list <- list()
+
+# Loop over each file
+for(i in seq_along(file_info$file_path)) {
+  # Read each file
+  temp_data <- read_csv(file_info$file_path[i]) |> 
+    mutate(subject_id = file_info$subject_id[i], arm = file_info$arm[i])
+  
+  # Append to the list
+  data_list[[i]] <- temp_data
+}
+
+# Combine all dataframes into one
+combined_data <- bind_rows(data_list)
+```
+
+The combined raw data has `r ncol(combined_data)` columns and `r nrow(combined_data)` rows. It contains variables *`r colnames(combined_data)`*. 
+
+```{r Q2-spaghetti plot, message = FALSE, warning=FALSE}
+# Tidy the data
+tidy_data <- combined_data |>
+  pivot_longer(
+    cols = -c(subject_id, arm),
+    names_to = "week",
+    values_to = "observation"
+  )
+
+summary(tidy_data)
+
+# Spaghetti plot
+spaghetti_plot <- ggplot(tidy_data, aes(x = week, y = observation, group = subject_id, color = arm)) +
+  geom_line() +
+  labs(title = "Observations Over Time by Subject", x = "Week", y = "Observation") +
+  theme_minimal()
+
+spaghetti_plot
+```
+
+## Findings and Interpretation
+
+The experimental arm exhibited variability in response, a pattern that is reflective of the heterogeneous nature of human reactions to interventions. The data's narrative revealed that the experimental group's observations fluctuated over time, suggesting a dynamic response to the intervention. The control group data manifests as a baseline, presented an anticipated flat (slightly variable) line, indicating stability in the absence of an intervention. 
