@@ -1,0 +1,79 @@
+---
+title: "p8105_hw5_xl3214"
+author: "Xuan Lu"
+date: "`r Sys.Date()`"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Describe the raw data. Create a city_state variable (e.g. “Baltimore, MD”) and then summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
+
+```{r Load necessary packages, message=FALSE, results='hide', warning=FALSE}
+library(tidyverse)
+library(dplyr)
+library(broom)
+library(ggplot2)
+```
+
+
+```{r Load dataset, message=FALSE, warning=FALSE}
+homicide_raw <- read.csv(file = "data_files/homicide-data.csv")
+```
+
+The raw data has `r ncol(homicide_raw)` columns and `r nrow(homicide_raw)` rows. It contains variables *`r colnames(homicide_raw)`*. 
+
+```{r}
+homicide <- homicide_raw |>
+  janitor::clean_names() |>
+  mutate(city_state = paste(city, state, sep = ", ")) |>
+  mutate(victim_race = as.factor(victim_race)) |>
+  mutate(victim_sex = as.factor(victim_sex)) |>
+  mutate(victim_age = as.factor(victim_age)) |> 
+  mutate(disposition = as.factor(disposition))
+summary(homicide)
+```
+
+```{r city_state and disposition, message=FALSE, warning=FALSE, fig.height=10, fig.width=8}
+homicide_sum <- homicide |> 
+  group_by(city_state, disposition) |>
+  summarise(total_homicides = n())
+homicide_sum |> 
+  pivot_wider(names_from = disposition, values_from = total_homicides) |>
+  knitr::kable()
+
+proportion_test_by_city <- function(data, city_column, disposition_column) {
+  data |>
+    group_by({{ city_column }}) |>
+    summarize(
+      unsolved_count = sum({{ disposition_column }} %in% c("Closed without arrest", "Open/No arrest"), na.rm = TRUE),
+      total_cases = n(),
+      prop_test_result = list(prop.test(unsolved_count, total_cases, correct = FALSE))
+    ) |>
+    mutate(tidy_result = map(prop_test_result, broom::tidy)) |>
+    select(-prop_test_result) |>
+    unnest(tidy_result) |>
+    select(city = {{ city_column }}, estimate, conf.low, conf.high)
+}
+
+homicide_summary <- proportion_test_by_city(homicide, city_state, disposition)
+
+# Sort cities by the estimated proportion of unsolved homicides
+homicide_summary_sorted <- homicide_summary |>
+  arrange(desc(estimate))
+
+# Create the plot
+ggplot(homicide_summary_sorted, aes(x = reorder(city, estimate), y = estimate)) +
+  geom_point() +  # Add points for estimates
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +  # Add error bars
+  coord_flip() +  # Flip coordinates to make it easier to read city names
+  labs(
+    title = "Proportion of Unsolved Homicides by City",
+    x = "City",
+    y = "Estimated Proportion of Unsolved Homicides"
+  ) +
+  theme_minimal()
+```
+
