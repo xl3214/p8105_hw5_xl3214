@@ -2,7 +2,7 @@
 title: "p8105_hw5_xl3214"
 author: "Xuan Lu"
 date: "`r Sys.Date()`"
-output: pdf_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -154,7 +154,7 @@ spaghetti_plot <- ggplot(tidy_data, aes(x = week, y = observation, group = subje
 
 ## Findings and Interpretation
 
-```{r Q2-spaghetti plot}
+```{r Q2-spaghetti plot, message = FALSE, warning=FALSE}
 spaghetti_plot
 ```
 
@@ -170,14 +170,14 @@ Using 30 data points each time and a variability of 5, I'll simulate 5000 experi
 
 ## Data Analysis
 
-```{r Q3-design elements}
+```{r Q3-design elements, message = FALSE, warning=FALSE}
 n <- 30      # Sample size
 sigma <- 5   # Standard deviation (σ)
 mu <- 0      # Population mean (μ)
 alpha <- 0.05 # Significance level
 ```
 
-```{r Q3-simulation}
+```{r Q3-simulation, message = FALSE, warning=FALSE}
 set.seed(123)  # For reproducibility
 
 # Function to generate datasets and perform t-tests
@@ -208,7 +208,7 @@ simulations <- map(mu_values, ~ simulate_t_test(.x)) |>
   )
 ```
 
-```{r Q3-plotting}
+```{r Q3-plotting, message = FALSE, warning=FALSE}
 # Plot showing the power of the test
 power_plot <- ggplot(simulations, aes(x = true_mu, y = power)) +
   geom_point() +
@@ -236,13 +236,13 @@ estimate_plot <- ggplot(simulations, aes(x = true_mu)) +
 
 ## Findings and Interpretation
 
-```{r Q3-power plot}
+```{r Q3-power plot, message = FALSE, warning=FALSE}
 power_plot
 ```
 
 Power vs True Mean Plot: This plot depicts how power increases with the true mean, μ. The effect size, which is the difference between the true mean and the null hypothesis mean, is directly proportional to the power. As the true mean increases from 0 to 6, we should observe an increase in power, indicating a greater likelihood of correctly rejecting the false null hypothesis.
 
-```{r Q3-estimate plot}
+```{r Q3-estimate plot, message = FALSE, warning=FALSE}
 estimate_plot
 ```
 
