@@ -2,7 +2,7 @@
 title: "p8105_hw5_xl3214"
 author: "Xuan Lu"
 date: "`r Sys.Date()`"
-output: github_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -31,7 +31,7 @@ homicide_raw <- read.csv(file = "data_files/homicide-data.csv")
 
 The raw data has `r ncol(homicide_raw)` columns and `r nrow(homicide_raw)` rows. It contains variables *`r colnames(homicide_raw)`*. 
 
-```{r}
+```{r Q1-data cleaning}
 homicide <- homicide_raw |>
   janitor::clean_names() |>
   mutate(city_state = paste(city, state, sep = ", "),
@@ -71,7 +71,7 @@ homicide_summary_sorted <- homicide_summary |>
   arrange(desc(estimate))
 
 # Create the plot
-ggplot(homicide_summary_sorted, aes(x = reorder(city, estimate), y = estimate)) +
+proportion_plot <- ggplot(homicide_summary_sorted, aes(x = reorder(city, estimate), y = estimate)) +
   geom_point() +  # Add points for estimates
   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +  # Add error bars
   coord_flip() +  # Flip coordinates to make it easier to read city names
@@ -85,6 +85,11 @@ ggplot(homicide_summary_sorted, aes(x = reorder(city, estimate), y = estimate)) 
 
 ## Findings and Interpretation
 
+```{r Q1-proportion plot, message=FALSE, warning=FALSE, fig.height=10, fig.width=8}
+proportion_plot
+```
+
+
 The analysis revealed significant variations in the proportion of unsolved homicides across different cities. Notably, cities like Baltimore, Detroit, and Chicago emerged with a higher percentage of unsolved cases, aligning with national trends reported in major investigations. This pattern raises critical questions about law enforcement efficacy, resource allocation, and possible systemic issues within these urban centers.
 
 The data also brought to light the demographic aspects of the victims, showing disparities in the resolution of cases based on factors like race and age. Such disparities point towards potential underlying biases or systemic challenges in the criminal justice system that need addressing.
@@ -93,7 +98,7 @@ The data also brought to light the demographic aspects of the victims, showing d
 
 ## Introduction
 
-In this analysis segment, I delve into a dataset drawn from a meticulously designed longitudinal study, which comprises both a control and an experimental arm. The dataset is publicly accessible and can be found [HERE](https://p8105.com/data/hw5_data.zip). Each participant's data is encapsulated in distinct files, labeled with their respective subject ID and designated study arm. I orchestrated these disparate data points into a coherent, tidied dataframe that captures the essence of each participant's journey through the study, tracking their individual observations over time. Furthermore, I have visualized the data through a spaghetti plot, which intricately maps out each participant's path across the study's timeline.
+For this part of the project, I am working with data from a study that tracked two groups over time: one that received a treatment and one that did not. You can download the data [HERE](https://p8105.com/data/hw5_data.zip). Each person in the study has their own file, named with a unique ID and which group they were in. I combined all these files into one clean dataset so we can easily see how each person's results changed through the course of the study. I also made a "spaghetti plot" to show everyone's data over time in a way that lets us compare the two groups.
 
 ## Data Analysis
 
@@ -129,7 +134,7 @@ combined_data <- bind_rows(data_list)
 
 The combined raw data has `r ncol(combined_data)` columns and `r nrow(combined_data)` rows. It contains variables *`r colnames(combined_data)`*. 
 
-```{r Q2-spaghetti plot, message = FALSE, warning=FALSE}
+```{r Q2-plotting, message = FALSE, warning=FALSE}
 # Tidy the data
 tidy_data <- combined_data |>
   pivot_longer(
@@ -145,10 +150,100 @@ spaghetti_plot <- ggplot(tidy_data, aes(x = week, y = observation, group = subje
   geom_line() +
   labs(title = "Observations Over Time by Subject", x = "Week", y = "Observation") +
   theme_minimal()
-
-spaghetti_plot
 ```
 
 ## Findings and Interpretation
 
-The experimental arm exhibited variability in response, a pattern that is reflective of the heterogeneous nature of human reactions to interventions. The data's narrative revealed that the experimental group's observations fluctuated over time, suggesting a dynamic response to the intervention. The control group data manifests as a baseline, presented an anticipated flat (slightly variable) line, indicating stability in the absence of an intervention. 
+```{r Q2-spaghetti plot}
+spaghetti_plot
+```
+
+The experimental group displayed a range of responses, illustrating the natural variability of human reactions to the treatment. Over the course of the study, these responses showed notable fluctuations, suggesting that the treatment's impact varied over time. Conversely, the control group served as a consistent baseline, with their results remaining relatively stable, reflecting the expected outcome in the absence of the treatment.
+
+# Question 3
+
+## Introduction
+
+In Question 3, we are looking at statistical power — the chance that our test will spot a real difference if there is one. This depends on things like how many data points we have, the size of the effect we are looking for, and how much our data varies. I have set up a simulation to explore this.
+
+Using 30 data points each time and a variability of 5, I'll simulate 5000 experiments with normal data where the average is usually zero. Then, I will check what happens to our estimates and chances of finding a significant result when the real average changes from 1 to 6. This will help us understand how well our test can detect actual differences, which is crucial for setting up good experiments.
+
+## Data Analysis
+
+```{r Q3-design elements}
+n <- 30      # Sample size
+sigma <- 5   # Standard deviation (σ)
+mu <- 0      # Population mean (μ)
+alpha <- 0.05 # Significance level
+```
+
+```{r Q3-simulation}
+set.seed(123)  # For reproducibility
+
+# Function to generate datasets and perform t-tests
+simulate_t_test <- function(mu) {
+  t_tests <- replicate(5000, {
+    sample <- rnorm(n, mean = mu, sd = sigma)
+    t_test_result <- t.test(sample, mu = 0)
+    broom::tidy(t_test_result)
+  }, simplify = FALSE)
+  
+  t_tests_df <- bind_rows(t_tests, .id = "dataset_id") |>
+    mutate(true_mu = mu)
+  
+  return(t_tests_df)
+}
+
+# List of mu values to test
+mu_values <- 0:6
+
+# Perform simulations
+simulations <- map(mu_values, ~ simulate_t_test(.x)) |>
+  bind_rows() |>
+  group_by(true_mu) |>
+  summarise(
+    power = mean(p.value < alpha),
+    avg_estimate = mean(estimate),
+    avg_estimate_rejected = mean(estimate[p.value < alpha])
+  )
+```
+
+```{r Q3-plotting}
+# Plot showing the power of the test
+power_plot <- ggplot(simulations, aes(x = true_mu, y = power)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "Power vs Effect Size",
+       x = "True Value of μ",
+       y = "Power of the Test") +
+  theme_minimal()
+
+# Plot showing the average estimate of μ̂
+estimate_plot <- ggplot(simulations, aes(x = true_mu)) +
+  geom_point(aes(y = avg_estimate, color = "Overall Average")) +
+  geom_line(aes(y = avg_estimate, color = "Overall Average")) +
+  geom_point(aes(y = avg_estimate_rejected, color = "Average When Null Rejected")) +
+  geom_line(aes(y = avg_estimate_rejected, color = "Average When Null Rejected")) +
+  scale_color_manual(
+    name = "Estimate Type",
+    values = c("Overall Average" = "blue", "Average When Null Rejected" = "red")
+  ) +
+  labs(title = "Average Estimate of μ̂",
+       x = "True Value of μ",
+       y = "Average Estimate of μ̂") +
+  theme_minimal()
+```
+
+## Findings and Interpretation
+
+```{r Q3-power plot}
+power_plot
+```
+
+Power vs True Mean Plot: This plot depicts how power increases with the true mean, μ. The effect size, which is the difference between the true mean and the null hypothesis mean, is directly proportional to the power. As the true mean increases from 0 to 6, we should observe an increase in power, indicating a greater likelihood of correctly rejecting the false null hypothesis.
+
+```{r Q3-estimate plot}
+estimate_plot
+```
+
+Average Estimate of μ̂ Plots: The red line shows the average estimate of μ̂ across all simulations at different true mean values. The blue line shows the average estimate of μ̂ only for those simulations where the null hypothesis was rejected. The average of μ̂ where the null is rejected is closer to the true μ, but due to the selection of only significant results, it is biased and not exactly equal to the true mean. This phenomenon is known as the "winner's curse" in statistical literature.
